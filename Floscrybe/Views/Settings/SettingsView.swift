@@ -21,7 +21,29 @@ struct SettingsView: View {
                 Section("Export") {
                     Toggle("Auto-export transcripts as Markdown", isOn: $settings.autoExportEnabled)
 
-                    if settings.autoExportEnabled {
+                    Toggle("Run AI prompt and export result", isOn: $settings.aiAutoExportEnabled)
+                        .disabled(!appState.codexService.isSignedIn)
+
+                    if settings.aiAutoExportEnabled {
+                        Picker("AI Prompt", selection: $settings.aiAutoExportPromptID) {
+                            Text("None").tag(String?.none)
+                            ForEach(appState.codexService.availablePromptTemplates, id: \.id) { template in
+                                Text(template.title).tag(Optional(template.id))
+                            }
+                        }
+
+                        Text("After each transcription completes, the selected AI prompt will run automatically and its output will be saved as a separate Markdown file in the export folder.")
+                            .font(Typography.caption)
+                            .foregroundStyle(ColorTokens.textMuted)
+                    }
+
+                    if !appState.codexService.isSignedIn {
+                        Text("Sign in to Codex in the AI tab to enable AI auto-export.")
+                            .font(Typography.caption)
+                            .foregroundStyle(ColorTokens.textMuted)
+                    }
+
+                    if settings.autoExportEnabled || settings.aiAutoExportEnabled {
                         HStack {
                             if let url = settings.autoExportURL {
                                 Text(url.path)
@@ -48,28 +70,6 @@ struct SettingsView: View {
                                 }
                                 .buttonStyle(.secondary)
                             }
-                        }
-
-                        Toggle("Run AI prompt and export result", isOn: $settings.aiAutoExportEnabled)
-                            .disabled(!appState.codexService.isSignedIn)
-
-                        if settings.aiAutoExportEnabled {
-                            Picker("AI Prompt", selection: $settings.aiAutoExportPromptID) {
-                                Text("None").tag(String?.none)
-                                ForEach(appState.codexService.availablePromptTemplates, id: \.id) { template in
-                                    Text(template.title).tag(Optional(template.id))
-                                }
-                            }
-
-                            Text("After each transcription completes, the selected AI prompt will run automatically and its output will be saved as a separate Markdown file in the export folder.")
-                                .font(Typography.caption)
-                                .foregroundStyle(ColorTokens.textMuted)
-                        }
-
-                        if !appState.codexService.isSignedIn {
-                            Text("Sign in to Codex in the AI tab to enable AI auto-export.")
-                                .font(Typography.caption)
-                                .foregroundStyle(ColorTokens.textMuted)
                         }
                     }
                 }
