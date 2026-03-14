@@ -1,0 +1,27 @@
+# Security Policy
+
+## Architecture
+
+Flowscribe is a local-first application:
+
+- All transcription runs on-device using Apple's Neural Engine
+- No cloud services, no embedded API keys, no telemetry
+- AI features use the local Codex CLI session — authentication is handled entirely by the Codex CLI, not by Flowscribe
+- All external URLs in the codebase are public documentation links
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability, please report it through [GitHub Security Advisories](../../security/advisories/new) rather than opening a public issue.
+
+### What qualifies as a security issue
+
+- Unintended data exfiltration or network access
+- Local privilege escalation through bundled binaries
+- Path traversal or command injection via file names or URLs
+- Credential or session token exposure
+
+### What does not qualify
+
+- Bugs that require physical access to an already-unlocked Mac
+- Issues in upstream dependencies (report those to the upstream project)
+- Feature requests for additional hardening
