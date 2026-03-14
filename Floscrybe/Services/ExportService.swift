@@ -80,6 +80,27 @@ enum ExportService {
         }
     }
 
+    static func exportAIMarkdown(
+        transcript: Transcript,
+        aiResult: TranscriptAIResult
+    ) {
+        var md = "# \(transcript.title) — \(aiResult.promptTitle)\n"
+        md += "**Date:** \(TimeFormatting.formattedDate(aiResult.createdAt))\n"
+        md += "**Prompt:** \(aiResult.promptTitle)\n"
+        md += "\n---\n\n"
+        md += aiResult.content
+
+        let panel = NSSavePanel()
+        panel.title = "Export AI Result"
+        panel.nameFieldStringValue = "\(transcript.title) - \(aiResult.promptTitle).md"
+        panel.allowedContentTypes = [.plainText]
+        panel.canCreateDirectories = true
+
+        if panel.runModal() == .OK, let url = panel.url {
+            try? md.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
     static func autoExport(
         transcript: Transcript,
         segments: [TranscriptSegment],

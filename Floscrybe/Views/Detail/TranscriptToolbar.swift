@@ -7,6 +7,8 @@ struct TranscriptToolbar: View {
     let transcript: Transcript
     let segments: [TranscriptSegment]
     @Binding var showTimestamps: Bool
+    let selectedTab: TranscriptDetailView.DetailTab
+    let selectedAIResult: TranscriptAIResult?
     let isGeneratingAI: Bool
     let onRunPrompt: (AIPromptTemplate) -> Void
     let onShowAITab: () -> Void
@@ -16,21 +18,33 @@ struct TranscriptToolbar: View {
 
         HStack(spacing: Spacing.md) {
             Button {
-                ExportService.copyToClipboard(
-                    segments: segments,
-                    showTimestamps: showTimestamps
-                )
+                if selectedTab == .ai, let aiResult = selectedAIResult {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(aiResult.content, forType: .string)
+                } else {
+                    ExportService.copyToClipboard(
+                        segments: segments,
+                        showTimestamps: showTimestamps
+                    )
+                }
             } label: {
                 Label("Copy", systemImage: "doc.on.doc")
             }
             .buttonStyle(.secondary)
 
             Button {
-                ExportService.exportMarkdown(
-                    transcript: transcript,
-                    segments: segments,
-                    showTimestamps: showTimestamps
-                )
+                if selectedTab == .ai, let aiResult = selectedAIResult {
+                    ExportService.exportAIMarkdown(
+                        transcript: transcript,
+                        aiResult: aiResult
+                    )
+                } else {
+                    ExportService.exportMarkdown(
+                        transcript: transcript,
+                        segments: segments,
+                        showTimestamps: showTimestamps
+                    )
+                }
             } label: {
                 Label("Export .md", systemImage: "square.and.arrow.up")
             }

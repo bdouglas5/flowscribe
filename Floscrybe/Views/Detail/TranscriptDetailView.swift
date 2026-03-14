@@ -119,6 +119,8 @@ struct TranscriptDetailView: View {
                 transcript: transcript,
                 segments: segments,
                 showTimestamps: $showTimestamps,
+                selectedTab: selectedTab,
+                selectedAIResult: aiResults.first(where: { $0.id == selectedAIResultID }),
                 isGeneratingAI: isGeneratingAI,
                 onRunPrompt: runPrompt,
                 onShowAITab: { selectedTab = .ai }
