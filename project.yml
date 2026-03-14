@@ -1,0 +1,40 @@
+name: Floscrybe
+options:
+  bundleIdPrefix: com.bdoug
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    ARCHS: arm64
+    VALID_ARCHS: arm64
+    SWIFT_VERSION: "5.10"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+targets:
+  Floscrybe:
+    type: application
+    platform: macOS
+    sources:
+      - path: Floscrybe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bdoug.floscrybe
+        INFOPLIST_FILE: Floscrybe/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Floscrybe/Resources/Floscrybe.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_APP_SANDBOX: false
+        PRODUCT_NAME: Floscrybe
+    dependencies:
+      - package: FluidAudio
+      - package: GRDB
+
+packages:
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    from: "0.12.2"
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: "7.10.0"
