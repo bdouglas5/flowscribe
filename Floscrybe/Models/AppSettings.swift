@@ -32,6 +32,10 @@ final class AppSettings {
         didSet { defaults.set(aiAutoExportPromptID, forKey: "aiAutoExportPromptID") }
     }
 
+    var codexCustomBinaryPath: String? {
+        didSet { defaults.set(codexCustomBinaryPath, forKey: "codexCustomBinaryPath") }
+    }
+
     var autoExportURL: URL? {
         guard let bookmark = autoExportBookmark else { return nil }
         var isStale = false
@@ -91,6 +95,7 @@ final class AppSettings {
         self.autoExportBookmark = defaults.data(forKey: "autoExportBookmark")
         self.aiAutoExportEnabled = defaults.bool(forKey: "aiAutoExportEnabled")
         self.aiAutoExportPromptID = defaults.string(forKey: "aiAutoExportPromptID")
+        self.codexCustomBinaryPath = defaults.string(forKey: "codexCustomBinaryPath")
         self.youtubeDateRange = YouTubeDateRange(
             rawValue: defaults.string(forKey: "youtubeDateRange") ?? ""
         ) ?? .allTime

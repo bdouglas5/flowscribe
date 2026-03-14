@@ -640,6 +640,12 @@ final class CodexService {
     }
 
     private func locateCodexBinary() -> URL? {
+        if let customPath = defaults.string(forKey: "codexCustomBinaryPath"),
+           !customPath.isEmpty,
+           fileManager.isExecutableFile(atPath: customPath) {
+            return URL(fileURLWithPath: customPath)
+        }
+
         let environment = ProcessInfo.processInfo.environment
         var candidates: [String] = []
 

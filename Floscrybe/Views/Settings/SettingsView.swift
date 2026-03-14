@@ -175,12 +175,44 @@ struct SettingsView: View {
                     statusBadge
                 }
 
-                if let binaryPath = appState.codexService.codexBinaryPath {
-                    LabeledContent("CLI Path") {
-                        Text(binaryPath)
-                            .font(Typography.mono)
-                            .foregroundStyle(ColorTokens.textSecondary)
-                            .textSelection(.enabled)
+                LabeledContent("CLI Path") {
+                    VStack(alignment: .trailing, spacing: Spacing.xs) {
+                        if let customPath = appState.settings.codexCustomBinaryPath, !customPath.isEmpty {
+                            Text(customPath)
+                                .font(Typography.mono)
+                                .foregroundStyle(ColorTokens.textSecondary)
+                                .textSelection(.enabled)
+                            Text("Custom path")
+                                .font(Typography.caption)
+                                .foregroundStyle(ColorTokens.textMuted)
+                        } else if let binaryPath = appState.codexService.codexBinaryPath {
+                            Text(binaryPath)
+                                .font(Typography.mono)
+                                .foregroundStyle(ColorTokens.textSecondary)
+                                .textSelection(.enabled)
+                            Text("Auto-detected")
+                                .font(Typography.caption)
+                                .foregroundStyle(ColorTokens.textMuted)
+                        } else {
+                            Text("Not found")
+                                .font(Typography.mono)
+                                .foregroundStyle(ColorTokens.statusError)
+                        }
+
+                        HStack(spacing: Spacing.xs) {
+                            Button("Browse...") {
+                                chooseCodexBinary()
+                            }
+                            .buttonStyle(.secondary)
+
+                            if appState.settings.codexCustomBinaryPath != nil {
+                                Button("Reset to Auto-Detect") {
+                                    appState.settings.codexCustomBinaryPath = nil
+                                    Task { await appState.codexService.refreshStatus() }
+                                }
+                                .buttonStyle(.secondary)
+                            }
+                        }
                     }
                 }
 
@@ -311,6 +343,19 @@ struct SettingsView: View {
             .padding(.vertical, Spacing.xs)
             .background(statusBadgeColor)
             .clipShape(Capsule())
+    }
+
+    private func chooseCodexBinary() {
+        let panel = NSOpenPanel()
+        panel.title = "Select Codex CLI Binary"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+
+        if panel.runModal() == .OK, let url = panel.url {
+            appState.settings.codexCustomBinaryPath = url.path
+            Task { await appState.codexService.refreshStatus() }
+        }
     }
 
     private func chooseExportFolder() {
