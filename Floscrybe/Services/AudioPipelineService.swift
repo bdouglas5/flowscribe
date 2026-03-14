@@ -177,15 +177,24 @@ final class AudioPipelineService {
             }
 
             let fullText = buildFullText(segments: segments)
+            let resolvedDuration = resolvedDuration(
+                preferredDuration: asrResult.durationSeconds,
+                segments: segments
+            )
 
             try repository.updateStatus(
                 savedTranscriptId,
                 status: .completed,
                 fullText: fullText.isEmpty ? asrResult.fullText : fullText,
-                durationSeconds: asrResult.durationSeconds,
+                durationSeconds: resolvedDuration,
                 speakerCount: speakerCount
             )
             try repository.saveSegments(segments)
+
+            transcript.durationSeconds = resolvedDuration
+            transcript.fullText = fullText.isEmpty ? asrResult.fullText : fullText
+            transcript.status = .completed
+            transcript.speakerCount = speakerCount
 
             // Auto-export if enabled
             if settings.autoExportEnabled, let exportURL = settings.autoExportURL {
@@ -262,6 +271,17 @@ final class AudioPipelineService {
 
     private func overlaps(start lhsStart: Double, end lhsEnd: Double, with rhsStart: Double, and rhsEnd: Double) -> Bool {
         min(lhsEnd, rhsEnd) > max(lhsStart, rhsStart)
+    }
+
+    private func resolvedDuration(
+        preferredDuration: Double,
+        segments: [TranscriptSegment]
+    ) -> Double {
+        if preferredDuration > 0 {
+            return preferredDuration
+        }
+
+        return segments.map(\.endTime).max() ?? 0
     }
 
     private func cleanupTempFile(_ wavURL: URL, originalURL: URL?) {

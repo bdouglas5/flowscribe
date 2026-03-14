@@ -24,7 +24,7 @@ struct ContentView: View {
                 } label: {
                     Image(systemName: "link.badge.plus")
                 }
-                .help("Paste URL")
+                .help("Paste URL or press Command-V")
             }
         }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in

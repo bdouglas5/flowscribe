@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct FloscrybeApp: App {
@@ -15,6 +17,9 @@ struct FloscrybeApp: App {
             }
             .environment(appState)
             .preferredColorScheme(.dark)
+            .onPasteCommand(of: [.plainText, .url]) { _ in
+                handlePasteCommand()
+            }
             .task {
                 await appState.initialize()
             }
@@ -27,5 +32,14 @@ struct FloscrybeApp: App {
                 .environment(appState)
                 .preferredColorScheme(.dark)
         }
+    }
+
+    private func handlePasteCommand() {
+        if let textView = NSApp.keyWindow?.firstResponder as? NSTextView, textView.isEditable {
+            NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
+            return
+        }
+
+        _ = appState.enqueueSupportedURLFromPasteboard()
     }
 }

@@ -46,7 +46,7 @@ struct TranscriptDetailView: View {
                             .font(Typography.caption)
                             .foregroundStyle(ColorTokens.textMuted)
 
-                        if let duration = transcript.durationSeconds {
+                        if let duration = transcript.durationSeconds, duration > 0 {
                             Text(TimeFormatting.duration(seconds: duration))
                                 .font(Typography.caption)
                                 .foregroundStyle(ColorTokens.textMuted)

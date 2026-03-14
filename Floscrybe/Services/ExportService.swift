@@ -10,7 +10,7 @@ enum ExportService {
         var md = "# \(transcript.title)\n"
         md += "**Date:** \(TimeFormatting.formattedDate(transcript.createdAt))\n"
 
-        if let duration = transcript.durationSeconds {
+        if let duration = transcript.durationSeconds, duration > 0 {
             md += "**Duration:** \(TimeFormatting.duration(seconds: duration))\n"
         }
 

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 @Observable
@@ -20,6 +21,31 @@ final class AppState {
 
     var selectedTranscript: Transcript? {
         transcripts.first { $0.id == selectedTranscriptId }
+    }
+
+    @discardableResult
+    func enqueueSupportedURLFromPasteboard() -> Bool {
+        guard let pastedText = NSPasteboard.general.string(forType: .string) else {
+            AppLogger.info("Paste", "Pasteboard did not contain plain text")
+            return false
+        }
+
+        return enqueueSupportedURL(from: pastedText)
+    }
+
+    @discardableResult
+    func enqueueSupportedURL(from pastedText: String) -> Bool {
+        guard let supportedURL = YTDLPService.firstSupportedURL(in: pastedText) else {
+            AppLogger.info("Paste", "Ignored pasted content because no supported URL was found")
+            return false
+        }
+
+        enqueueURL(
+            supportedURL,
+            speakerDetection: settings.speakerDetection,
+            speakerNames: []
+        )
+        return true
     }
 
     func initialize() async {
@@ -50,6 +76,7 @@ final class AppState {
             self.queueManager = queue
 
             transcripts = try repo.fetchAll()
+            await repairTranscriptDurationsIfNeeded()
             AppLogger.info("AppState", "Initialization complete. transcripts=\(transcripts.count)")
         } catch {
             AppLogger.error("AppState", "Initialization failed: \(error.localizedDescription)")
@@ -263,5 +290,67 @@ final class AppState {
             refreshTranscripts()
         }
         refreshTranscripts()
+    }
+
+    private func repairTranscriptDurationsIfNeeded() async {
+        guard let repository else { return }
+
+        let candidates = transcripts.filter { ($0.durationSeconds ?? 0) <= 0 }
+        guard !candidates.isEmpty else { return }
+
+        var repairedCount = 0
+
+        for transcript in candidates {
+            guard let transcriptID = transcript.id else { continue }
+
+            let repairedDuration = await inferredDuration(
+                for: transcript,
+                repository: repository
+            )
+
+            guard let repairedDuration, repairedDuration > 0 else { continue }
+
+            do {
+                try repository.updateStatus(
+                    transcriptID,
+                    status: transcript.status,
+                    durationSeconds: repairedDuration
+                )
+                repairedCount += 1
+            } catch {
+                AppLogger.error(
+                    "AppState",
+                    "Failed to repair duration for transcript \(transcriptID): \(error.localizedDescription)"
+                )
+            }
+        }
+
+        guard repairedCount > 0 else { return }
+
+        transcripts = (try? repository.fetchAll()) ?? transcripts
+        AppLogger.info("AppState", "Repaired durations for \(repairedCount) transcript(s)")
+    }
+
+    private func inferredDuration(
+        for transcript: Transcript,
+        repository: TranscriptRepository
+    ) async -> Double? {
+        if transcript.sourceType == .file {
+            let sourceURL = URL(fileURLWithPath: transcript.sourcePath)
+            if FileManager.default.fileExists(atPath: sourceURL.path),
+               let detectedDuration = try? await FFmpegService.audioDuration(of: sourceURL),
+               detectedDuration > 0 {
+                return detectedDuration
+            }
+        }
+
+        guard let transcriptID = transcript.id,
+              let maxEndTime = (try? repository.fetchSegments(transcriptId: transcriptID))?.map(\.endTime).max(),
+              maxEndTime > 0
+        else {
+            return nil
+        }
+
+        return maxEndTime
     }
 }

@@ -39,6 +39,30 @@ enum YTDLPService {
         return isYouTubeHost(host)
     }
 
+    static func firstSupportedURL(in text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isValidURL(trimmed) {
+            return trimmed
+        }
+
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.link.rawValue
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+        for match in detector.matches(in: trimmed, options: [], range: range) {
+            guard let matchRange = Range(match.range, in: trimmed) else { continue }
+            let candidate = String(trimmed[matchRange])
+            if isValidURL(candidate) {
+                return candidate
+            }
+        }
+
+        return nil
+    }
+
     static func resolveQueueItems(
         url: String,
         speakerDetection: Bool,

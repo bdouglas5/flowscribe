@@ -49,7 +49,7 @@ enum FFmpegService {
     }
 
     static func audioDuration(of url: URL) async throws -> Double {
-        let output = try await SubprocessRunner.runChecked(
+        let output = try await SubprocessRunner.run(
             executable: StoragePaths.ffmpegBinary,
             arguments: [
                 "-i", url.path,
@@ -57,17 +57,27 @@ enum FFmpegService {
                 "-f", "null", "-"
             ]
         )
-        // Parse duration from ffmpeg output
-        // Duration: HH:MM:SS.ss
-        if let range = output.range(of: #"Duration: (\d+):(\d+):(\d+\.\d+)"#,
-                                     options: .regularExpression) {
-            let match = String(output[range])
-            let components = match.replacingOccurrences(of: "Duration: ", with: "").split(separator: ":")
+        guard output.exitCode == 0 else {
+            let message = output.stderr.isEmpty ? output.stdout : output.stderr
+            throw SubprocessError.executionFailed(message, output.exitCode)
+        }
+
+        let combinedOutput = [output.stdout, output.stderr].joined(separator: "\n")
+
+        // ffmpeg reports duration to stderr, not stdout.
+        if let range = combinedOutput.range(
+            of: #"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)"#,
+            options: .regularExpression
+        ) {
+            let match = String(combinedOutput[range])
+            let components = match
+                .replacingOccurrences(of: "Duration: ", with: "")
+                .split(separator: ":")
             if components.count == 3,
                let hours = Double(components[0]),
                let minutes = Double(components[1]),
                let seconds = Double(components[2]) {
-                return hours * 3600 + minutes * 60 + seconds
+                return (hours * 3600) + (minutes * 60) + seconds
             }
         }
         return 0
