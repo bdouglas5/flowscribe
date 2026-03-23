@@ -3,6 +3,9 @@ import SwiftUI
 struct TranscriptSegmentView: View {
     let segment: TranscriptSegment
     let showTimestamps: Bool
+    var searchQuery: String = ""
+    var currentGlobalMatchIndex: Int = 0
+    var globalMatchOffset: Int = 0
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
@@ -20,10 +23,22 @@ struct TranscriptSegmentView: View {
                         .foregroundStyle(ColorTokens.textSecondary)
                 }
 
-                Text(segment.text)
+                if !searchQuery.isEmpty {
+                    HighlightedText(
+                        text: segment.text,
+                        query: searchQuery,
+                        currentGlobalMatchIndex: currentGlobalMatchIndex,
+                        globalMatchOffset: globalMatchOffset
+                    )
                     .font(Typography.body)
                     .foregroundStyle(ColorTokens.textPrimary)
                     .textSelection(.enabled)
+                } else {
+                    Text(segment.text)
+                        .font(Typography.body)
+                        .foregroundStyle(ColorTokens.textPrimary)
+                        .textSelection(.enabled)
+                }
             }
         }
         .padding(.vertical, Spacing.xs)

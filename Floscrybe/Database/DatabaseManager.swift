@@ -80,6 +80,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v5_add_thumbnail_url") { db in
+            try db.alter(table: "transcript") { t in
+                t.add(column: "thumbnailURL", .text)
+            }
+        }
+
         try migrator.migrate(dbQueue)
     }
 }

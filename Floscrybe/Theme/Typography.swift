@@ -7,4 +7,5 @@ enum Typography {
     static let body = Font.system(size: 13, weight: .regular, design: .default)
     static let caption = Font.system(size: 11, weight: .regular, design: .default)
     static let mono = Font.system(size: 12, weight: .regular, design: .monospaced)
+    static let sectionHeader = Font.system(size: 11, weight: .semibold, design: .default)
 }

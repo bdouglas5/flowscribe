@@ -14,6 +14,7 @@ struct Transcript: Codable, Identifiable, Equatable {
     var fullText: String
     var status: TranscriptStatus
     var errorMessage: String?
+    var thumbnailURL: String?
     var collectionID: String?
     var collectionTitle: String?
     var collectionType: CollectionType?
@@ -32,6 +33,7 @@ struct Transcript: Codable, Identifiable, Equatable {
     enum CollectionType: String, Codable, DatabaseValueConvertible {
         case playlist
         case channel
+        case show
     }
 
     enum TranscriptStatus: String, Codable, DatabaseValueConvertible {

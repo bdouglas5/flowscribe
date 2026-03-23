@@ -5,15 +5,18 @@ final class AudioPipelineService {
     private let diarizationService: DiarizationService
     private let repository: TranscriptRepository
     private let settings: AppSettings
+    private let spotifyPodcastService: SpotifyPodcastService?
 
     init(transcriptionService: TranscriptionService,
          diarizationService: DiarizationService,
          repository: TranscriptRepository,
-         settings: AppSettings) {
+         settings: AppSettings,
+         spotifyPodcastService: SpotifyPodcastService? = nil) {
         self.transcriptionService = transcriptionService
         self.diarizationService = diarizationService
         self.repository = repository
         self.settings = settings
+        self.spotifyPodcastService = spotifyPodcastService
     }
 
     func process(item: QueueItem) async throws -> Int64 {
@@ -31,11 +34,41 @@ final class AudioPipelineService {
 
             if item.sourceType == .url {
                 await MainActor.run { item.status = .downloading }
-                let result = try await YTDLPService.downloadAudio(for: item)
-                audioURL = result.audioFile
-                title = result.title
+
+                let downloadResult: (audioFile: URL, title: String)
+
+                if item.remoteSource == .spotify, let metadata = item.spotifyMetadata,
+                   let spotifyService = spotifyPodcastService {
+                    downloadResult = try await spotifyService.downloadAudio(
+                        episodeName: metadata.showName.isEmpty ? item.title : item.title,
+                        showName: metadata.showName,
+                        showID: metadata.showID,
+                        publisherName: metadata.publisherName,
+                        durationSeconds: Double(metadata.episodeDurationMs) / 1000.0
+                    ) { fraction in
+                        Task { @MainActor in
+                            item.progress = max(item.progress, fraction * 0.5)
+                        }
+                    }
+                } else if item.remoteSource == .spotify {
+                    throw PipelineError.unsupportedSource
+                } else {
+                    downloadResult = try await YTDLPService.downloadAudio(for: item) { fraction, speed in
+                        Task { @MainActor in
+                            item.progress = max(item.progress, fraction * 0.5)
+                            item.downloadSpeed = speed
+                        }
+                    }
+                }
+
                 await MainActor.run {
-                    item.title = result.title
+                    item.downloadSpeed = nil
+                    item.progress = 0.5
+                }
+                audioURL = downloadResult.audioFile
+                title = downloadResult.title
+                await MainActor.run {
+                    item.title = downloadResult.title
                 }
                 AppLogger.info("Pipeline", "Downloaded remote audio for \(title) to \(audioURL.path)")
             } else {
@@ -65,6 +98,7 @@ final class AudioPipelineService {
                 speakerCount: item.speakerNames.count,
                 fullText: "",
                 status: .processing,
+                thumbnailURL: item.thumbnailURL,
                 collectionID: item.collectionID,
                 collectionTitle: item.collectionTitle,
                 collectionType: item.collectionType,
@@ -85,7 +119,8 @@ final class AudioPipelineService {
             await MainActor.run { item.status = .transcribing }
             let asrResult = try await transcriptionService.transcribe(audioURL: wavURL)
 
-            await MainActor.run { item.progress = 0.6 }
+            let isRemote = item.sourceType == .url
+            await MainActor.run { item.progress = isRemote ? 0.9 : 0.8 }
 
             // 5. Build segments
             var segments: [TranscriptSegment] = []
@@ -103,7 +138,7 @@ final class AudioPipelineService {
                     )
                     AppLogger.info("Pipeline", "Diarization succeeded for \(title)")
 
-                    await MainActor.run { item.progress = 0.8 }
+                    await MainActor.run { item.progress = isRemote ? 0.95 : 0.9 }
 
                     let speakerNames = speakerNames(for: diarResult, preferred: item.speakerNames)
                     speakerCount = speakerNames.count
@@ -294,10 +329,12 @@ final class AudioPipelineService {
 
 enum PipelineError: LocalizedError {
     case databaseError
+    case unsupportedSource
 
     var errorDescription: String? {
         switch self {
         case .databaseError: "Failed to create transcript record"
+        case .unsupportedSource: "Unsupported audio source"
         }
     }
 }

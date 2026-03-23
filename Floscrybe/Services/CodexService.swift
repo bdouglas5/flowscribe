@@ -38,7 +38,10 @@ final class CodexService {
 
     private let defaults = UserDefaults.standard
     private let fileManager = FileManager.default
-    private let defaultExecutionTimeout: TimeInterval = 180
+    private var executionTimeout: TimeInterval {
+        let stored = UserDefaults.standard.integer(forKey: "codexTimeoutSeconds")
+        return TimeInterval(stored > 0 ? stored : 300)
+    }
     private let healthCheckTimeout: TimeInterval = 60
     private let healthCheckPhrase = "Floscrybe Codex health check ok"
     private let maxInlineTranscriptCharacters = 18_000
@@ -52,6 +55,7 @@ final class CodexService {
     private(set) var lastHealthCheckAt: Date?
     private(set) var activeTaskPromptTitle: String?
     private(set) var activeTaskStatus: String?
+    private(set) var activeTaskTranscriptId: Int64?
 
     var promptTemplates: [AIPromptTemplate]
     var statusTitle = "Checking Codex CLI..."
@@ -246,16 +250,19 @@ final class CodexService {
         isRunningTask = true
         activeTaskPromptTitle = promptTemplate.title
         activeTaskStatus = "Preparing transcript..."
+        activeTaskTranscriptId = transcript.id
         defer {
             isRunningTask = false
             activeTaskPromptTitle = nil
             activeTaskStatus = nil
+            activeTaskTranscriptId = nil
         }
 
         let transcriptBody = transcriptText(from: transcript, segments: segments)
+        let modelName = UserDefaults.standard.string(forKey: "codexModel") ?? "CLI default"
         AppLogger.info(
             "Codex",
-            "Running prompt \(promptTemplate.id) for transcriptId=\(transcript.id ?? -1) chars=\(transcriptBody.count)"
+            "Running prompt \(promptTemplate.id) for transcriptId=\(transcript.id ?? -1) chars=\(transcriptBody.count) model=\(modelName)"
         )
 
         let strategy = executionStrategy(
@@ -272,7 +279,7 @@ final class CodexService {
                     transcript: transcript,
                     transcriptBody: transcriptBody
                 ),
-                timeout: defaultExecutionTimeout
+                timeout: executionTimeout
             )
 
         case .chunkMap:
@@ -339,25 +346,36 @@ final class CodexService {
             try? fileManager.removeItem(at: outputFile)
         }
 
+        var args = [
+            "exec",
+            "-C", workingDirectory.path,
+            "--skip-git-repo-check",
+            "--ephemeral",
+            "--sandbox", "read-only",
+            "--color", "never",
+            "--output-last-message", outputFile.path
+        ]
+
+        if let model = UserDefaults.standard.string(forKey: "codexModel"), !model.isEmpty {
+            args.append(contentsOf: ["--model", model])
+            AppLogger.info("Codex", "Using model: \(model)")
+        } else {
+            AppLogger.info("Codex", "Using CLI default model (no --model flag)")
+        }
+
+        args.append("-")
+
         let output = try await SubprocessRunner.run(
             executable: codexURL,
-            arguments: [
-                "exec",
-                "-C", workingDirectory.path,
-                "--skip-git-repo-check",
-                "--ephemeral",
-                "--sandbox", "read-only",
-                "--color", "never",
-                "--output-last-message", outputFile.path,
-                "-"
-            ],
+            arguments: args,
             workingDirectory: workingDirectory,
             standardInput: prompt,
             timeout: timeout
         )
 
         guard output.exitCode == 0 else {
-            let message = cleanedOutput(from: output)
+            let stderr = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            let message = stderr.isEmpty ? cleanedOutput(from: output) : stderr
             throw SubprocessError.executionFailed(message, output.exitCode)
         }
 
@@ -430,7 +448,7 @@ final class CodexService {
 
             let chunkResult = try await execute(
                 prompt: prompt,
-                timeout: defaultExecutionTimeout
+                timeout: executionTimeout
             )
             cleanedChunks.append(chunkResult)
         }
@@ -467,7 +485,7 @@ final class CodexService {
 
             let chunkOutput = try await execute(
                 prompt: prompt,
-                timeout: defaultExecutionTimeout
+                timeout: executionTimeout
             )
             chunkOutputs.append("""
             ## Chunk \(index + 1)
@@ -496,7 +514,7 @@ final class CodexService {
 
         return try await execute(
             prompt: finalPrompt,
-            timeout: defaultExecutionTimeout
+            timeout: executionTimeout
         )
     }
 

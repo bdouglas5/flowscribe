@@ -12,11 +12,11 @@ struct URLInputDialog: View {
                 .font(Typography.title)
                 .foregroundStyle(ColorTokens.textPrimary)
 
-            Text("Paste a YouTube video, playlist, or channel URL to download and transcribe.")
+            Text("Paste a YouTube or Spotify podcast URL to download and transcribe.")
                 .font(Typography.body)
                 .foregroundStyle(ColorTokens.textSecondary)
 
-            TextField("https://youtube.com/watch?v=...", text: $urlString)
+            TextField("https://youtube.com/watch?v=... or https://open.spotify.com/episode/...", text: $urlString)
                 .textFieldStyle(.plain)
                 .padding(Spacing.sm)
                 .background(
@@ -58,8 +58,23 @@ struct URLInputDialog: View {
     private func submit() {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        if SpotifyAPIService.isSpotifyURL(trimmed) {
+            if appState.spotifyPodcastService?.isConnected != true {
+                errorMessage = "Connect to Spotify in Settings first."
+                return
+            }
+            appState.enqueueSpotifyURL(
+                trimmed,
+                speakerDetection: appState.settings.speakerDetection,
+                speakerNames: []
+            )
+            isPresented = false
+            return
+        }
+
         guard YTDLPService.isValidURL(trimmed) else {
-            errorMessage = "URL not recognized. Paste a YouTube URL."
+            errorMessage = "URL not recognized. Paste a YouTube or Spotify podcast URL."
             return
         }
 

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct TranscriptDetailView: View {
@@ -10,7 +11,7 @@ struct TranscriptDetailView: View {
         var title: String {
             switch self {
             case .transcript: "Transcript"
-            case .ai: "AI"
+            case .ai: "AI Summary"
             }
         }
     }
@@ -29,25 +30,50 @@ struct TranscriptDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
+            // Centered thumbnail + metadata
+            VStack(spacing: Spacing.md) {
+                if let urlString = transcript.thumbnailURL,
+                   let url = URL(string: urlString) {
+                    thumbnailView(imageURL: url)
+                }
+
+                VStack(spacing: Spacing.xs) {
                     Text(transcript.title)
-                        .font(Typography.largeTitle)
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(ColorTokens.textPrimary)
+                        .multilineTextAlignment(.center)
 
                     HStack(spacing: Spacing.sm) {
-                        if let collectionTitle = transcript.collectionTitle {
-                            Text(collectionTitle)
+                        Label {
+                            Text(TimeFormatting.formattedDate(transcript.createdAt))
+                        } icon: {
+                            Image(systemName: "calendar")
+                        }
+                        .font(Typography.caption)
+                        .foregroundStyle(ColorTokens.textMuted)
+
+                        if let duration = transcript.durationSeconds, duration > 0 {
+                            Label {
+                                Text(TimeFormatting.duration(seconds: duration))
+                            } icon: {
+                                Image(systemName: "clock")
+                            }
+                            .font(Typography.caption)
+                            .foregroundStyle(ColorTokens.textMuted)
+                        }
+
+                        HStack(spacing: Spacing.xxs) {
+                            SourceIconView(
+                                category: TranscriptCategory.category(for: transcript),
+                                size: 10
+                            )
+                            Text(TranscriptCategory.category(for: transcript).displayName)
                                 .font(Typography.caption)
                                 .foregroundStyle(ColorTokens.textMuted)
                         }
 
-                        Text(TimeFormatting.formattedDate(transcript.createdAt))
-                            .font(Typography.caption)
-                            .foregroundStyle(ColorTokens.textMuted)
-
-                        if let duration = transcript.durationSeconds, duration > 0 {
-                            Text(TimeFormatting.duration(seconds: duration))
+                        if let collectionTitle = transcript.collectionTitle {
+                            Text(collectionTitle)
                                 .font(Typography.caption)
                                 .foregroundStyle(ColorTokens.textMuted)
                         }
@@ -65,21 +91,34 @@ struct TranscriptDetailView: View {
                         }
                     }
                 }
-                Spacer()
             }
+            .frame(maxWidth: .infinity)
             .padding(Spacing.md)
 
-            Divider()
-                .background(ColorTokens.border)
-
-            Picker("View", selection: $selectedTab) {
+            // Centered underline tab bar
+            HStack(spacing: Spacing.lg) {
                 ForEach(DetailTab.allCases) { tab in
-                    Text(tab.title).tag(tab)
+                    Text(tab.title)
+                        .font(Typography.headline)
+                        .foregroundStyle(
+                            selectedTab == tab
+                                ? ColorTokens.textPrimary
+                                : ColorTokens.textMuted
+                        )
+                        .padding(.vertical, Spacing.sm)
+                        .overlay(alignment: .bottom) {
+                            if selectedTab == tab {
+                                Rectangle()
+                                    .fill(ColorTokens.textPrimary)
+                                    .frame(height: 2)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedTab = tab }
                 }
             }
-            .pickerStyle(.segmented)
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
 
             Divider()
                 .background(ColorTokens.border)
@@ -87,16 +126,32 @@ struct TranscriptDetailView: View {
             Group {
                 switch selectedTab {
                 case .transcript:
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: Spacing.sm) {
-                            ForEach(segments) { segment in
-                                TranscriptSegmentView(
-                                    segment: segment,
-                                    showTimestamps: showTimestamps
-                                )
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: Spacing.md) {
+                                ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                                    TranscriptSegmentView(
+                                        segment: segment,
+                                        showTimestamps: showTimestamps,
+                                        searchQuery: appState.activeSearchQuery,
+                                        currentGlobalMatchIndex: appState.currentMatchIndex,
+                                        globalMatchOffset: matchOffset(upTo: index)
+                                    )
+                                    .id(segment.id)
+                                }
                             }
+                            .frame(maxWidth: 720)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, Spacing.xl)
+                            .padding(.vertical, Spacing.lg)
+                            .padding(.bottom, 60) // Space for floating toolbar
                         }
-                        .padding(Spacing.md)
+                        .onChange(of: appState.currentMatchIndex) { _, _ in
+                            scrollToCurrentMatch(proxy: proxy)
+                        }
+                        .onChange(of: appState.activeSearchQuery) { _, _ in
+                            updateMatchCount()
+                        }
                     }
 
                 case .ai:
@@ -111,30 +166,73 @@ struct TranscriptDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-                .background(ColorTokens.border)
-
-            TranscriptToolbar(
-                transcript: transcript,
-                segments: segments,
-                showTimestamps: $showTimestamps,
-                selectedTab: selectedTab,
-                selectedAIResult: aiResults.first(where: { $0.id == selectedAIResultID }),
-                isGeneratingAI: isGeneratingAI,
-                onRunPrompt: runPrompt,
-                onShowAITab: { selectedTab = .ai }
-            )
+            .overlay(alignment: .bottom) {
+                TranscriptToolbar(
+                    transcript: transcript,
+                    segments: segments,
+                    showTimestamps: $showTimestamps,
+                    selectedTab: selectedTab,
+                    selectedAIResult: aiResults.first(where: { $0.id == selectedAIResultID }),
+                    isGeneratingAI: isGeneratingAI,
+                    onRunPrompt: runPrompt,
+                    onShowAITab: { selectedTab = .ai }
+                )
+                .padding(.bottom, Spacing.md)
+            }
         }
-        .background(ColorTokens.backgroundBase)
+        .background(ColorTokens.backgroundRaised)
         .onAppear {
             showTimestamps = appState.settings.showTimestamps
             loadTranscriptData()
+            updateMatchCount()
         }
         .onChange(of: transcript.id) { _, _ in
             selectedTab = .transcript
             aiError = nil
             loadTranscriptData()
+            updateMatchCount()
+        }
+    }
+
+    @ViewBuilder
+    private func thumbnailView(imageURL: URL) -> some View {
+        let image = CachedAsyncImage(url: imageURL) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            case .empty, .failure:
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(ColorTokens.backgroundFloat)
+                    .overlay {
+                        SourceIconView(
+                            category: TranscriptCategory.category(for: transcript),
+                            size: 28
+                        )
+                    }
+            }
+        }
+        .frame(width: 288, height: 162)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(ColorTokens.border, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.07), radius: 2, y: 1)
+
+        if transcript.sourceType == .url, let sourceURL = URL(string: transcript.sourcePath) {
+            Button {
+                NSWorkspace.shared.open(sourceURL)
+            } label: {
+                image
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
+        } else {
+            image
         }
     }
 
@@ -214,7 +312,49 @@ struct TranscriptDetailView: View {
         }
     }
 
+    private func matchOffset(upTo segmentIndex: Int) -> Int {
+        var offset = 0
+        for i in 0..<segmentIndex {
+            offset += HighlightedText.matchCount(in: segments[i].text, query: appState.activeSearchQuery)
+        }
+        return offset
+    }
+
+    private func updateMatchCount() {
+        let query = appState.activeSearchQuery
+        guard !query.isEmpty else {
+            appState.totalMatchCount = 0
+            return
+        }
+        var total = 0
+        for segment in segments {
+            total += HighlightedText.matchCount(in: segment.text, query: query)
+        }
+        appState.totalMatchCount = total
+    }
+
+    private func scrollToCurrentMatch(proxy: ScrollViewProxy) {
+        let targetIndex = appState.currentMatchIndex
+        guard appState.totalMatchCount > 0 else { return }
+
+        var cumulative = 0
+        for segment in segments {
+            let count = HighlightedText.matchCount(in: segment.text, query: appState.activeSearchQuery)
+            if cumulative + count > targetIndex {
+                withAnimation {
+                    proxy.scrollTo(segment.id, anchor: .center)
+                }
+                return
+            }
+            cumulative += count
+        }
+    }
+
     private var activeTaskStatusMessage: String? {
+        guard appState.codexService.activeTaskTranscriptId == transcript.id || isGeneratingAI else {
+            return nil
+        }
+
         var components: [String] = []
 
         if let promptTitle = appState.codexService.activeTaskPromptTitle, !promptTitle.isEmpty {

@@ -14,9 +14,10 @@ struct TranscriptToolbar: View {
     let onShowAITab: () -> Void
 
     var body: some View {
-        let isAIRunning = isGeneratingAI || appState.codexService.isRunningTask
+        let isThisTranscriptRunning = isGeneratingAI || appState.codexService.activeTaskTranscriptId == transcript.id
+        let isAnyAIRunning = isGeneratingAI || appState.codexService.isRunningTask
 
-        HStack(spacing: Spacing.md) {
+        HStack(spacing: Spacing.sm) {
             Button {
                 if selectedTab == .ai, let aiResult = selectedAIResult {
                     NSPasteboard.general.clearContents()
@@ -29,8 +30,13 @@ struct TranscriptToolbar: View {
                 }
             } label: {
                 Label("Copy", systemImage: "doc.on.doc")
+                    .font(Typography.caption)
+                    .fontWeight(.medium)
             }
-            .buttonStyle(.secondary)
+            .buttonStyle(.borderless)
+            .foregroundStyle(ColorTokens.textPrimary)
+
+            toolbarDivider
 
             Button {
                 if selectedTab == .ai, let aiResult = selectedAIResult {
@@ -47,8 +53,13 @@ struct TranscriptToolbar: View {
                 }
             } label: {
                 Label("Export .md", systemImage: "square.and.arrow.up")
+                    .font(Typography.caption)
+                    .fontWeight(.medium)
             }
-            .buttonStyle(.secondary)
+            .buttonStyle(.borderless)
+            .foregroundStyle(ColorTokens.textPrimary)
+
+            toolbarDivider
 
             Menu {
                 if appState.codexService.isSignedIn {
@@ -58,7 +69,7 @@ struct TranscriptToolbar: View {
                                 onShowAITab()
                                 onRunPrompt(prompt)
                             }
-                            .disabled(isAIRunning)
+                            .disabled(isAnyAIRunning)
                         }
                     }
                 } else {
@@ -76,20 +87,43 @@ struct TranscriptToolbar: View {
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 }
             } label: {
-                Label(isAIRunning ? "Running AI..." : "AI", systemImage: "sparkles")
+                Label(isThisTranscriptRunning ? "Running..." : "AI", systemImage: "sparkles")
+                    .font(Typography.caption)
+                    .fontWeight(.medium)
             }
-            .buttonStyle(.secondary)
+            .foregroundStyle(ColorTokens.textPrimary)
 
-            Spacer()
+            toolbarDivider
 
-            Toggle(isOn: $showTimestamps) {
-                Label("Timestamps", systemImage: "clock")
+            HStack(spacing: Spacing.xs) {
+                Text("Timestamps")
+                    .font(Typography.caption)
+                    .foregroundStyle(ColorTokens.textSecondary)
+                Toggle("", isOn: $showTimestamps)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .labelsHidden()
+                    .tint(ColorTokens.textSecondary)
             }
-            .toggleStyle(.switch)
-            .tint(ColorTokens.textSecondary)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(ColorTokens.backgroundRaised)
+        .fixedSize()
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(ColorTokens.backgroundRaised)
+                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                .shadow(color: .black.opacity(0.04), radius: 1, y: 0.5)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(ColorTokens.border, lineWidth: 0.5)
+        )
+    }
+
+    private var toolbarDivider: some View {
+        Rectangle()
+            .fill(ColorTokens.border)
+            .frame(width: 1, height: 16)
     }
 }

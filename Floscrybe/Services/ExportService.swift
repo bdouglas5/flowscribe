@@ -8,6 +8,14 @@ enum ExportService {
         showTimestamps: Bool
     ) -> String {
         var md = "# \(transcript.title)\n"
+
+        switch transcript.sourceType {
+        case .url:
+            md += "**Source:** [\(transcript.sourcePath)](\(transcript.sourcePath))\n"
+        case .file:
+            md += "**Source:** Local file\n"
+        }
+
         md += "**Date:** \(TimeFormatting.formattedDate(transcript.createdAt))\n"
 
         if let duration = transcript.durationSeconds, duration > 0 {

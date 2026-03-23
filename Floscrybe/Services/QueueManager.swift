@@ -4,7 +4,7 @@ import Foundation
 final class QueueManager {
     var items: [QueueItem] = []
     var isProcessing = false
-    var onItemCompleted: ((Int64) -> Void)?
+    var onItemCompleted: ((Int64, QueueItem) -> Void)?
 
     private let pipeline: AudioPipelineService
     private var processingTask: Task<Void, Never>?
@@ -84,7 +84,7 @@ final class QueueManager {
                     next.resultTranscriptId = transcriptId
                 }
                 AppLogger.info("Queue", "Completed item \(next.title) transcriptId=\(transcriptId)")
-                onItemCompleted?(transcriptId)
+                onItemCompleted?(transcriptId, next)
             } catch {
                 await MainActor.run {
                     next.status = .failed

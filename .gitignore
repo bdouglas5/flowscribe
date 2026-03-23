@@ -25,6 +25,11 @@ Package.resolved
 .LSOverride
 ._*
 
+# Local app data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
 # IDE
 *.swp
 *.swo

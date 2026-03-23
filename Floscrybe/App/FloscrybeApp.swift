@@ -16,21 +16,48 @@ struct FloscrybeApp: App {
                 }
             }
             .environment(appState)
-            .preferredColorScheme(.dark)
-            .onPasteCommand(of: [.plainText, .url]) { _ in
-                handlePasteCommand()
-            }
+            .preferredColorScheme(appState.settings.resolvedColorScheme)
             .task {
                 await appState.initialize()
             }
         }
-        .windowStyle(.titleBar)
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1000, height: 700)
+        .commands {
+            CommandGroup(replacing: .pasteboard) {
+                Button("Cut") {
+                    NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("x", modifiers: .command)
+
+                Button("Copy") {
+                    NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("c", modifiers: .command)
+
+                Button("Paste") {
+                    handlePasteCommand()
+                }
+                .keyboardShortcut("v", modifiers: .command)
+
+                Button("Paste URL") {
+                    _ = appState.enqueueSupportedURLFromPasteboard()
+                }
+                .keyboardShortcut("v", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Select All") {
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("a", modifiers: .command)
+            }
+        }
 
         Settings {
             SettingsView()
                 .environment(appState)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(appState.settings.resolvedColorScheme)
         }
     }
 

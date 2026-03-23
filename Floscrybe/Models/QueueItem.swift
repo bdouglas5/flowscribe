@@ -13,10 +13,13 @@ final class QueueItem: Identifiable {
     let collectionItemIndex: Int?
     var status: Status = .waiting
     var progress: Double = 0.0
+    var downloadSpeed: String?
     var errorMessage: String?
     var speakerNames: [String] = []
     var speakerDetection: Bool = false
     var resultTranscriptId: Int64?
+    var thumbnailURL: String?
+    var spotifyMetadata: SpotifyQueueMetadata?
 
     enum Status: String {
         case waiting
@@ -59,6 +62,7 @@ final class QueueItem: Identifiable {
          collectionTitle: String? = nil,
          collectionType: Transcript.CollectionType? = nil,
          collectionItemIndex: Int? = nil,
+         thumbnailURL: String? = nil,
          speakerDetection: Bool = false, speakerNames: [String] = []) {
         self.title = title
         self.sourceURL = sourceURL
@@ -68,6 +72,7 @@ final class QueueItem: Identifiable {
         self.collectionTitle = collectionTitle
         self.collectionType = collectionType
         self.collectionItemIndex = collectionItemIndex
+        self.thumbnailURL = thumbnailURL
         self.speakerDetection = speakerDetection
         self.speakerNames = speakerNames
     }

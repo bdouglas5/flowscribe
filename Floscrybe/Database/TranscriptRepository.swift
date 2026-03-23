@@ -129,7 +129,7 @@ final class TranscriptRepository {
         }
     }
 
-    // MARK: - Search
+    // MARK: - Search & Filter
 
     func search(query: String) throws -> [Transcript] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
@@ -150,6 +150,84 @@ final class TranscriptRepository {
                 sql: sql,
                 arguments: [pattern, Transcript.TranscriptStatus.completed.rawValue]
             )
+        }
+    }
+
+    func fetchFiltered(
+        category: TranscriptCategory = .all,
+        dateFilter: DateFilter = .allTime,
+        searchQuery: String? = nil,
+        titleFilter: String? = nil
+    ) throws -> [Transcript] {
+        let trimmedQuery = searchQuery?.trimmingCharacters(in: .whitespaces)
+        let hasSearch = trimmedQuery != nil && !trimmedQuery!.isEmpty
+
+        return try dbQueue.read { db in
+            var conditions = ["transcript.status = ?"]
+            var arguments: [any DatabaseValueConvertible] = [
+                Transcript.TranscriptStatus.completed.rawValue
+            ]
+
+            // Category filter
+            switch category {
+            case .all:
+                break
+            case .youtube:
+                conditions.append("transcript.remoteSource = ?")
+                arguments.append(Transcript.RemoteSource.youtube.rawValue)
+            case .spotify:
+                conditions.append("transcript.remoteSource = ?")
+                arguments.append(Transcript.RemoteSource.spotify.rawValue)
+            case .localAudio:
+                conditions.append("transcript.sourceType = ?")
+                arguments.append(Transcript.SourceType.file.rawValue)
+            }
+
+            // Date filter
+            if let startDate = dateFilter.startDate {
+                conditions.append("transcript.createdAt >= ?")
+                arguments.append(startDate)
+            }
+
+            // Title filter (case-insensitive LIKE)
+            if let titleTerm = titleFilter?.trimmingCharacters(in: .whitespaces), !titleTerm.isEmpty {
+                conditions.append("transcript.title LIKE ?")
+                arguments.append("%\(titleTerm)%")
+            }
+
+            let whereClause = conditions.joined(separator: " AND ")
+
+            let sql: String
+            if hasSearch {
+                let pattern = FTS5Pattern(matchingAllPrefixesIn: trimmedQuery!)
+                sql = """
+                    SELECT transcript.*
+                    FROM transcript
+                    JOIN transcriptFTS ON transcriptFTS.rowid = transcript.rowid
+                    WHERE transcriptFTS MATCH ?
+                      AND \(whereClause)
+                    ORDER BY transcript.createdAt DESC
+                    """
+                var allArgs: [any DatabaseValueConvertible] = [pattern]
+                allArgs.append(contentsOf: arguments)
+                return try Transcript.fetchAll(
+                    db,
+                    sql: sql,
+                    arguments: StatementArguments(allArgs)
+                )
+            } else {
+                sql = """
+                    SELECT *
+                    FROM transcript
+                    WHERE \(whereClause)
+                    ORDER BY createdAt DESC
+                    """
+                return try Transcript.fetchAll(
+                    db,
+                    sql: sql,
+                    arguments: StatementArguments(arguments)
+                )
+            }
         }
     }
 

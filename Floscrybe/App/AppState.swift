@@ -7,6 +7,8 @@ final class AppState {
     let settings = AppSettings()
     let binaryDownloadService = BinaryDownloadService()
     let codexService = CodexService()
+    let spotifyAuthService = SpotifyAuthService()
+    private(set) var spotifyPodcastService: SpotifyPodcastService?
 
     private(set) var databaseManager: DatabaseManager?
     private(set) var repository: TranscriptRepository?
@@ -14,8 +16,18 @@ final class AppState {
     private(set) var diarizationService = DiarizationService()
     private(set) var queueManager: QueueManager?
 
+    private var autoDownloadTask: Task<Void, Never>?
+    private var sessionBaselineEpisodeIDs: Set<String>?
+    private var pendingAIAutoExports: [Int64] = []
+    private var isProcessingAIAutoExports = false
+
     var transcripts: [Transcript] = []
     var selectedTranscriptId: Int64?
+    var selectedCategory: TranscriptCategory = .all
+    var selectedDateFilter: DateFilter = .allTime
+    var activeSearchQuery: String = ""
+    var currentMatchIndex: Int = 0
+    var totalMatchCount: Int = 0
     var isReady = false
     var setupError: String?
 
@@ -35,6 +47,16 @@ final class AppState {
 
     @discardableResult
     func enqueueSupportedURL(from pastedText: String) -> Bool {
+        // Check for Spotify URLs first
+        if let spotifyURL = SpotifyAPIService.firstSpotifyURL(in: pastedText) {
+            enqueueSpotifyURL(
+                spotifyURL,
+                speakerDetection: settings.speakerDetection,
+                speakerNames: []
+            )
+            return true
+        }
+
         guard let supportedURL = YTDLPService.firstSupportedURL(in: pastedText) else {
             AppLogger.info("Paste", "Ignored pasted content because no supported URL was found")
             return false
@@ -57,27 +79,48 @@ final class AppState {
 
             let dbManager = try DatabaseManager()
             let repo = TranscriptRepository(dbQueue: dbManager.dbQueue)
+
+            let spotifyService = SpotifyPodcastService(
+                authService: spotifyAuthService,
+                settings: settings
+            )
+            self.spotifyPodcastService = spotifyService
+
+            // Restore Spotify session if client ID is configured
+            if let clientID = settings.spotifyClientID, !clientID.isEmpty {
+                spotifyAuthService.clientID = clientID
+                await spotifyAuthService.restoreSession(clientID: clientID)
+            }
+
             let pipeline = AudioPipelineService(
                 transcriptionService: transcriptionService,
                 diarizationService: diarizationService,
                 repository: repo,
-                settings: settings
+                settings: settings,
+                spotifyPodcastService: spotifyService
             )
 
             self.databaseManager = dbManager
             self.repository = repo
 
             let queue = QueueManager(pipeline: pipeline)
-            queue.onItemCompleted = { [weak self] transcriptId in
+            queue.onItemCompleted = { [weak self] transcriptId, item in
                 Task { @MainActor in
                     await self?.handleAIAutoExport(transcriptId: transcriptId)
+                    if let episodeID = item.spotifyMetadata?.episodeID {
+                        self?.settings.markEpisodeProcessed(episodeID)
+                    }
                 }
             }
             self.queueManager = queue
 
-            transcripts = try repo.fetchAll()
+            transcripts = try repo.fetchFiltered(category: selectedCategory, dateFilter: selectedDateFilter)
             await repairTranscriptDurationsIfNeeded()
             AppLogger.info("AppState", "Initialization complete. transcripts=\(transcripts.count)")
+
+            if settings.spotifyAutoDownloadEnabled {
+                startAutoDownloadPolling()
+            }
         } catch {
             AppLogger.error("AppState", "Initialization failed: \(error.localizedDescription)")
             setupError = error.localizedDescription
@@ -110,12 +153,34 @@ final class AppState {
 
     func refreshTranscripts() {
         guard let repository else { return }
-        transcripts = (try? repository.fetchAll()) ?? []
+        transcripts = (try? repository.fetchFiltered(
+            category: selectedCategory,
+            dateFilter: selectedDateFilter
+        )) ?? []
+        activeSearchQuery = ""
+        currentMatchIndex = 0
+        totalMatchCount = 0
     }
 
     func searchTranscripts(query: String) {
         guard let repository else { return }
-        transcripts = (try? repository.search(query: query)) ?? []
+        transcripts = (try? repository.fetchFiltered(
+            category: selectedCategory,
+            dateFilter: selectedDateFilter,
+            searchQuery: query
+        )) ?? []
+        activeSearchQuery = query
+        currentMatchIndex = 0
+    }
+
+    func navigateToNextMatch() {
+        guard totalMatchCount > 0 else { return }
+        currentMatchIndex = (currentMatchIndex + 1) % totalMatchCount
+    }
+
+    func navigateToPreviousMatch() {
+        guard totalMatchCount > 0 else { return }
+        currentMatchIndex = (currentMatchIndex - 1 + totalMatchCount) % totalMatchCount
     }
 
     func deleteTranscript(id: Int64) {
@@ -201,6 +266,108 @@ final class AppState {
         }
     }
 
+    func enqueueSpotifyURL(_ urlString: String, speakerDetection: Bool, speakerNames: [String]) {
+        guard let queueManager, let spotifyPodcastService else { return }
+        guard spotifyPodcastService.isConnected else {
+            AppLogger.error("Queue", "Cannot enqueue Spotify URL — not connected to Spotify")
+            return
+        }
+
+        AppLogger.info("Queue", "Resolving Spotify URL \(urlString)")
+        let placeholder = QueueItem(
+            title: urlString,
+            sourceURL: URL(string: urlString),
+            sourceType: .url,
+            remoteSource: .spotify,
+            speakerDetection: speakerDetection,
+            speakerNames: defaultSpeakerNames(for: speakerNames, enabled: speakerDetection)
+        )
+        placeholder.status = .resolving
+        queueManager.enqueue(placeholder)
+
+        Task {
+            do {
+                guard let target = SpotifyURLTarget.parse(from: urlString) else {
+                    throw SpotifyServiceError.invalidURL
+                }
+
+                switch target {
+                case .episode(let id):
+                    let episode = try await spotifyPodcastService.resolveEpisode(id: id)
+
+                    // The /episodes/{id} endpoint embeds the show; fall back to a separate lookup
+                    let resolvedShow: SpotifyShow
+                    if let embeddedShow = episode.show {
+                        resolvedShow = embeddedShow
+                    } else {
+                        throw SpotifyServiceError.apiError(0, "Episode has no associated show")
+                    }
+
+                    let item = spotifyPodcastService.createQueueItem(
+                        from: episode,
+                        show: resolvedShow,
+                        speakerDetection: speakerDetection,
+                        speakerNames: defaultSpeakerNames(for: speakerNames, enabled: speakerDetection)
+                    )
+
+                    await MainActor.run {
+                        queueManager.replace(placeholder, with: [item])
+                    }
+
+                case .show(let id):
+                    let show = try await spotifyPodcastService.resolveShow(id: id)
+                    let episodes = await spotifyPodcastService.loadShowEpisodes(showID: id)
+                    let items = spotifyPodcastService.createQueueItems(
+                        from: episodes,
+                        show: show,
+                        speakerDetection: speakerDetection,
+                        speakerNames: defaultSpeakerNames(for: speakerNames, enabled: speakerDetection)
+                    )
+
+                    await MainActor.run {
+                        queueManager.replace(placeholder, with: items)
+                    }
+                }
+
+                AppLogger.info("Queue", "Resolved Spotify URL into queue items")
+                await watchQueue()
+            } catch {
+                AppLogger.error("Queue", "Spotify URL resolution failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    placeholder.status = .failed
+                    placeholder.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func enqueueSpotifyEpisodes(
+        _ episodes: [SpotifyEpisode],
+        show: SpotifyShow,
+        speakerDetection: Bool,
+        speakerNames: [String]
+    ) {
+        guard let queueManager, let spotifyPodcastService else { return }
+
+        for episode in episodes {
+            settings.markEpisodeProcessed(episode.id)
+        }
+
+        let items = spotifyPodcastService.createQueueItems(
+            from: episodes,
+            show: show,
+            speakerDetection: speakerDetection,
+            speakerNames: defaultSpeakerNames(for: speakerNames, enabled: speakerDetection)
+        )
+
+        AppLogger.info("Queue", "Enqueuing \(items.count) Spotify episode(s) from \(show.name)")
+        queueManager.enqueue(items)
+
+        Task {
+            await watchQueue()
+        }
+    }
+
     func cancelQueueItem(_ item: QueueItem) {
         AppLogger.info("Queue", "Cancelling queue item \(item.title)")
         queueManager?.cancel(item)
@@ -234,11 +401,117 @@ final class AppState {
         return []
     }
 
+    func updateAutoDownloadPolling() {
+        if settings.spotifyAutoDownloadEnabled {
+            startAutoDownloadPolling()
+        } else {
+            stopAutoDownloadPolling()
+        }
+    }
+
+    private func startAutoDownloadPolling() {
+        autoDownloadTask?.cancel()
+        autoDownloadTask = Task { [weak self] in
+            await self?.checkForFinishedEpisodes()
+
+            while !Task.isCancelled {
+                guard let self else { return }
+                let seconds = max(self.settings.spotifyAutoDownloadIntervalMinutes, 1) * 60
+                try? await Task.sleep(for: .seconds(seconds))
+                guard !Task.isCancelled else { return }
+                await self.checkForFinishedEpisodes()
+            }
+        }
+    }
+
+    private func stopAutoDownloadPolling() {
+        autoDownloadTask?.cancel()
+        autoDownloadTask = nil
+    }
+
+    func resetSessionBaseline() {
+        sessionBaselineEpisodeIDs = nil
+    }
+
+    private func checkForFinishedEpisodes() async {
+        guard settings.spotifyAutoDownloadEnabled,
+              let spotifyPodcastService,
+              spotifyPodcastService.isConnected,
+              queueManager != nil
+        else { return }
+
+        AppLogger.info("AutoDownload", "Checking for new finished episodes...")
+        await spotifyPodcastService.loadSavedEpisodes()
+
+        let allFinishedIDs = Set(
+            spotifyPodcastService.savedEpisodes
+                .filter(\.isFullyPlayed)
+                .map(\.id)
+        )
+
+        if sessionBaselineEpisodeIDs == nil {
+            sessionBaselineEpisodeIDs = allFinishedIDs
+            AppLogger.info("AutoDownload", "Recorded baseline of \(allFinishedIDs.count) already-finished episode(s)")
+            return
+        }
+
+        let newFinished = spotifyPodcastService.savedEpisodes
+            .filter(\.isFullyPlayed)
+            .filter { !sessionBaselineEpisodeIDs!.contains($0.id) }
+            .filter { !settings.spotifyProcessedEpisodeIDs.contains($0.id) }
+            .filter { $0.show != nil }
+
+        guard !newFinished.isEmpty else {
+            AppLogger.info("AutoDownload", "No new finished episodes found")
+            return
+        }
+
+        AppLogger.info("AutoDownload", "Found \(newFinished.count) new finished episode(s)")
+
+        let grouped = Dictionary(grouping: newFinished) { $0.show!.id }
+        for (_, episodes) in grouped {
+            guard let show = episodes.first?.show else { continue }
+            if spotifyPodcastService.isShowExclusive(show.id) {
+                for ep in episodes { settings.markEpisodeProcessed(ep.id) }
+                continue
+            }
+            enqueueSpotifyEpisodes(episodes, show: show,
+                speakerDetection: settings.speakerDetection, speakerNames: [])
+        }
+    }
+
     private func handleAIAutoExport(transcriptId: Int64) async {
         guard settings.aiAutoExportEnabled,
-              let promptID = settings.aiAutoExportPromptID,
-              let folderURL = settings.autoExportURL,
+              settings.aiAutoExportPromptID != nil,
+              settings.autoExportURL != nil,
               codexService.isSignedIn,
+              repository != nil
+        else { return }
+
+        pendingAIAutoExports.append(transcriptId)
+        AppLogger.info("AIAutoExport", "Queued transcript \(transcriptId) for AI auto-export (\(pendingAIAutoExports.count) pending)")
+        await drainAIAutoExportQueue()
+    }
+
+    private func drainAIAutoExportQueue() async {
+        guard !isProcessingAIAutoExports else { return }
+        isProcessingAIAutoExports = true
+        defer { isProcessingAIAutoExports = false }
+
+        while !pendingAIAutoExports.isEmpty {
+            // Wait if a manual AI task has priority
+            while codexService.isRunningTask {
+                try? await Task.sleep(for: .seconds(2))
+            }
+
+            let transcriptId = pendingAIAutoExports.removeFirst()
+            await executeAIAutoExport(transcriptId: transcriptId)
+        }
+    }
+
+    private func executeAIAutoExport(transcriptId: Int64) async {
+        guard let promptID = settings.aiAutoExportPromptID,
+              let folderURL = settings.autoExportURL,
               let repo = repository
         else { return }
 
@@ -327,7 +600,7 @@ final class AppState {
 
         guard repairedCount > 0 else { return }
 
-        transcripts = (try? repository.fetchAll()) ?? transcripts
+        transcripts = (try? repository.fetchFiltered(category: selectedCategory, dateFilter: selectedDateFilter)) ?? transcripts
         AppLogger.info("AppState", "Repaired durations for \(repairedCount) transcript(s)")
     }
 

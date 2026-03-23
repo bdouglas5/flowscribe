@@ -1,15 +1,17 @@
 import SwiftUI
 
 struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Typography.headline)
-            .foregroundStyle(ColorTokens.buttonPrimaryText)
+            .foregroundStyle(isEnabled ? ColorTokens.buttonPrimaryText : ColorTokens.textMuted)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(ColorTokens.buttonPrimary)
+                    .fill(isEnabled ? ColorTokens.buttonPrimary : ColorTokens.buttonSecondary)
             )
             .opacity(configuration.isPressed ? 0.8 : 1.0)
     }

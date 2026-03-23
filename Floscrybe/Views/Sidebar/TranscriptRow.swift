@@ -4,50 +4,34 @@ struct TranscriptRow: View {
     let transcript: Transcript
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            HStack(spacing: Spacing.xs) {
-                if let remoteSource = transcript.remoteSource {
-                    Image(systemName: "play.rectangle")
-                        .font(.system(size: 10))
-                        .foregroundStyle(ColorTokens.textMuted)
-                }
+        HStack(spacing: Spacing.sm) {
+            ThumbnailView(
+                thumbnailURL: transcript.thumbnailURL,
+                category: TranscriptCategory.category(for: transcript),
+                size: 32,
+                shape: .rounded
+            )
 
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(transcript.title)
-                    .font(Typography.headline)
+                    .font(Typography.body)
+                    .fontWeight(.medium)
                     .foregroundStyle(ColorTokens.textPrimary)
                     .lineLimit(1)
 
-                Spacer(minLength: 0)
-
-                if let index = transcript.collectionItemIndex {
-                    Text("#\(index)")
-                        .font(Typography.caption)
-                        .foregroundStyle(ColorTokens.textMuted)
-                }
-            }
-
-            HStack(spacing: Spacing.sm) {
-                Text(TimeFormatting.relativeDate(transcript.createdAt))
+                Text(metadataString)
                     .font(Typography.caption)
                     .foregroundStyle(ColorTokens.textMuted)
-
-                if let duration = transcript.durationSeconds, duration > 0 {
-                    Text(TimeFormatting.duration(seconds: duration))
-                        .font(Typography.caption)
-                        .foregroundStyle(ColorTokens.textMuted)
-                }
-
-                if transcript.speakerDetection && transcript.speakerCount > 0 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "person.2")
-                            .font(.system(size: 9))
-                        Text("\(transcript.speakerCount)")
-                            .font(Typography.caption)
-                    }
-                    .foregroundStyle(ColorTokens.textMuted)
-                }
             }
         }
         .padding(.vertical, Spacing.xxs)
+    }
+
+    private var metadataString: String {
+        var parts: [String] = [TimeFormatting.relativeDate(transcript.createdAt)]
+        if let duration = transcript.durationSeconds, duration > 0 {
+            parts.append(TimeFormatting.duration(seconds: duration))
+        }
+        return parts.joined(separator: " \u{00B7} ")
     }
 }
