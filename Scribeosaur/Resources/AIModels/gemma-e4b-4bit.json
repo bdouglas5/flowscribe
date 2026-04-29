@@ -1,0 +1,56 @@
+{
+  "assetFiles" : [
+    {
+      "checksum" : "7b6f7686d7b95fa73f5a97e37a6237bdec0905588ee683988587dcd422e4cf8c",
+      "path" : "README.md",
+      "sizeBytes" : 28163
+    },
+    {
+      "checksum" : "55572b8d3c8342044e25874c73fe5234b661fa0a57a57f6ef75b58e03d7d959a",
+      "path" : "chat_template.jinja",
+      "sizeBytes" : 11926
+    },
+    {
+      "checksum" : "2abf8c3b258e65b1463d2e03ae95c80b18613192c38f9e90e7f55dd9366c739d",
+      "path" : "config.json",
+      "sizeBytes" : 98897
+    },
+    {
+      "checksum" : "d4226bbe3117d2d253ba4609720ba82c6c4ce4627a9a6ae05387c78983ac03de",
+      "path" : "generation_config.json",
+      "sizeBytes" : 208
+    },
+    {
+      "checksum" : "4345216134935379bb06bbf53a44694f02f4940cc0e963f38b21e9a747a48bb7",
+      "path" : "model-00001-of-00002.safetensors",
+      "sizeBytes" : 3273206124
+    },
+    {
+      "checksum" : "79c5d284ec61ad0da1ba7ad8060f7c7c95a963581d006fefc97775de9f7831fb",
+      "path" : "model-00002-of-00002.safetensors",
+      "sizeBytes" : 2319336848
+    },
+    {
+      "checksum" : "916f30b850d8dc4c85edaf5076125702d528b1d85f0a548c8e8c21e908233729",
+      "path" : "model.safetensors.index.json",
+      "sizeBytes" : 151391
+    },
+    {
+      "checksum" : "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+      "path" : "tokenizer.json",
+      "sizeBytes" : 32169626
+    },
+    {
+      "checksum" : "fe8db0f0aa9a6b5c5d46e9b52b91b7cecb00f879f8ee336c6352b612833c6e73",
+      "path" : "tokenizer_config.json",
+      "sizeBytes" : 2698
+    }
+  ],
+  "displayName" : "Gemma 4 E4B (4-bit)",
+  "estimatedDownloadSizeBytes" : 5625005881,
+  "estimatedMemoryBytes" : 5368709120,
+  "id" : "gemma-e4b-4bit-local",
+  "notes" : "Default local Gemma 4 E4B model for Apple Silicon.",
+  "providerID" : "unsloth/gemma-4-E4B-it-UD-MLX-4bit",
+  "revision" : "52a9e17e759f23e63acf486834de990060319265"
+}

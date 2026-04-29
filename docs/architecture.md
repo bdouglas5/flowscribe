@@ -1,4 +1,4 @@
-# Floscrybe
+# Scribeosaur
 
 **Source:** None (original concept)
 **Created:** 2026-03-07
@@ -7,11 +7,11 @@
 
 ## Documents
 
-- [[Floscrybe - SaaS Essentials|SaaS Essentials]]
+- [[Scribeosaur - SaaS Essentials|SaaS Essentials]]
 
 ## Overview
 
-Floscrybe is a native macOS transcription app — drag in any audio/video file (or paste a YouTube URL), and it transcribes locally using FluidAudio's CoreML models running on Apple's Neural Engine. No cloud services, no subscriptions, no Python. Features include speaker diarization with pre-labeling, a processing queue, transcript history with search, and optional AI analysis via Claude/GPT API keys. Built entirely in Swift/SwiftUI for a minimal, fast, personal-use tool.
+Scribeosaur is a native macOS transcription app — drag in any audio/video file (or paste a YouTube URL), and it transcribes locally using FluidAudio's CoreML models running on Apple's Neural Engine. No cloud services, no subscriptions, no Python. Features include speaker diarization with pre-labeling, a processing queue, transcript history with search, and optional AI analysis via Claude/GPT API keys. Built entirely in Swift/SwiftUI for a minimal, fast, personal-use tool.
 
 ---
 
@@ -19,13 +19,13 @@ Floscrybe is a native macOS transcription app — drag in any audio/video file (
 
 ### Context & Starting Point
 
-Brandon wanted a super simple local Mac app that transcribes any audio/video format. Key drivers: accuracy, speed, ease of use, fully local processing with no paid services. Shares DNA with the [[Scriber-Architecture|Scriber]] project (same problem space — transcription on Mac) but is a completely different product. Scriber is an After Effects plugin for placing word-level markers; Floscrybe is a standalone general-purpose transcription tool for personal use.
+Brandon wanted a super simple local Mac app that transcribes any audio/video format. Key drivers: accuracy, speed, ease of use, fully local processing with no paid services. Shares DNA with the [[Scriber-Architecture|Scriber]] project (same problem space — transcription on Mac) but is a completely different product. Scriber is an After Effects plugin for placing word-level markers; Scribeosaur is a standalone general-purpose transcription tool for personal use.
 
 ### Key Questions Explored
 
 #### 1. Tech Stack — Pure Swift vs. Python Sidecar
 
-**Question:** Should Floscrybe use WhisperX with a Python/PyInstaller sidecar (like Scriber) or go fully native?
+**Question:** Should Scribeosaur use WhisperX with a Python/PyInstaller sidecar (like Scriber) or go fully native?
 
 **Discussion:**
 Two viable paths were identified:
@@ -72,7 +72,7 @@ Brandon wants maximum simplicity. Drag and drop onto the window, transcription k
 **Main Window Layout:**
 ```
 ┌──────────────────────────────────────────────────────┐
-│  Floscrybe                              [+] [⚙]     │
+│  Scribeosaur                              [+] [⚙]     │
 ├────────────┬─────────────────────────────────────────┤
 │            │                                         │
 │  Sidebar   │  Transcript View                        │
@@ -172,14 +172,14 @@ yt-dlp is the gold standard for YouTube audio extraction. It's a standalone bina
 
 **Flow:**
 1. User pastes a YouTube URL (via paste button or ⌘V in a URL field)
-2. App calls bundled yt-dlp: `yt-dlp -x --audio-format wav -o /tmp/floscrybe/[title].wav "URL"`
+2. App calls bundled yt-dlp: `yt-dlp -x --audio-format wav -o /tmp/scribeosaur/[title].wav "URL"`
 3. yt-dlp downloads and extracts audio to temp directory
 4. Audio file enters the normal transcription queue
 5. Temp audio is cleaned up after transcription completes
 6. Transcript is stored with the video title as the label (pulled from yt-dlp metadata)
 
 **Bundling:**
-- yt-dlp binary bundled in `Floscrybe.app/Contents/Resources/`
+- yt-dlp binary bundled in `Scribeosaur.app/Contents/Resources/`
 - ffmpeg also bundled there (yt-dlp needs it for format conversion)
 - Auto-update mechanism for yt-dlp would be nice but is post-MVP
 
@@ -197,7 +197,7 @@ Audio/video files are temp-only — deleted after transcription. Transcripts per
 **Conclusion/Decision:**
 
 **Storage:**
-- Transcripts stored in `~/Library/Application Support/Floscrybe/transcripts/`
+- Transcripts stored in `~/Library/Application Support/Scribeosaur/transcripts/`
 - Each transcript is a JSON file containing:
   - Original filename or URL
   - Transcription date
@@ -216,7 +216,7 @@ Audio/video files are temp-only — deleted after transcription. Transcripts per
 - Audio extracted from video → temp dir → transcribe → delete
 - Downloaded YouTube audio → temp dir → transcribe → delete
 - Original audio files are NOT modified or moved — only read from their location
-- Temp directory: `~/Library/Application Support/Floscrybe/temp/` — cleared on app launch
+- Temp directory: `~/Library/Application Support/Scribeosaur/temp/` — cleared on app launch
 
 ---
 

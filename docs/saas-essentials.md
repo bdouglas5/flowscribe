@@ -1,13 +1,13 @@
-# Floscrybe — SaaS Essentials
+# Scribeosaur — SaaS Essentials
 
-**Source:** [[Floscrybe]]
+**Source:** [[Scribeosaur]]
 **Created:** 2026-03-07
 **Last Updated:** 2026-03-07
 **Status:** Draft
 
 ## Vision Summary
 
-Floscrybe is a native macOS transcription app for personal use. Drag in any audio/video file or paste a YouTube URL, and it transcribes locally using FluidAudio's CoreML models on Apple's Neural Engine. No cloud, no subscriptions, no Python. Features speaker diarization with pre-labeling, a universal processing queue, searchable transcript history, and optional AI analysis via API keys. Built entirely in Swift/SwiftUI as a zero-cost, single-user tool.
+Scribeosaur is a native macOS transcription app for personal use. Drag in any audio/video file or paste a YouTube URL, and it transcribes locally using FluidAudio's CoreML models on Apple's Neural Engine. No cloud, no subscriptions, no Python. Features speaker diarization with pre-labeling, a universal processing queue, searchable transcript history, and optional AI analysis via API keys. Built entirely in Swift/SwiftUI as a zero-cost, single-user tool.
 
 ---
 
@@ -35,7 +35,7 @@ Floscrybe is a native macOS transcription app for personal use. Drag in any audi
 
 | Technology | Purpose | Why This Choice |
 |-----------|---------|-----------------|
-| **ffmpeg** | Audio/video format conversion | Universal format support — converts anything to WAV for FluidAudio. Not bundled in app — **downloaded on first launch** to `~/Library/Application Support/Floscrybe/bin/` to respect LGPL licensing |
+| **ffmpeg** | Audio/video format conversion | Universal format support — converts anything to WAV for FluidAudio. Not bundled in app — **downloaded on first launch** to `~/Library/Application Support/Scribeosaur/bin/` to respect LGPL licensing |
 | **yt-dlp** | YouTube/URL audio extraction | Gold standard for video platform audio extraction. Supports 1000+ sites beyond YouTube. Also **downloaded on first launch** alongside ffmpeg. Updated via in-app update check |
 | **swift-subprocess** | Subprocess management | Swift 6.2's official async subprocess API. Clean `await run(.at(ffmpegPath), arguments: [...])` syntax for calling ffmpeg and yt-dlp |
 
@@ -52,13 +52,13 @@ ffmpeg is LGPL-licensed. Bundling it inside the app would require open-sourcing 
 
 **Storage Layout:**
 ```
-~/Library/Application Support/Floscrybe/
+~/Library/Application Support/Scribeosaur/
 ├── bin/
 │   ├── ffmpeg              (downloaded on first launch)
 │   └── yt-dlp              (downloaded on first launch)
 ├── models/                 (FluidAudio CoreML models, cached after first download)
 ├── db/
-│   └── floscrybe.sqlite    (GRDB database — transcripts, metadata, FTS index)
+│   └── scribeosaur.sqlite    (GRDB database — transcripts, metadata, FTS index)
 ├── exports/                (markdown exports, if user wants a default location)
 └── temp/                   (audio files during processing — cleared on app launch)
 ```
@@ -214,7 +214,7 @@ No SDK dependencies needed for V2 AI features — both APIs are simple enough to
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                     Floscrybe.app                          │
+│                     Scribeosaur.app                          │
 │                                                            │
 │  ┌──────────────┐    ┌──────────────────────────────────┐  │
 │  │   SwiftUI    │    │        FluidAudio (CoreML)       │  │
@@ -247,10 +247,10 @@ No SDK dependencies needed for V2 AI features — both APIs are simple enough to
 └────────────────────────────────────────────────────────────┘
 
 File System:
-~/Library/Application Support/Floscrybe/
+~/Library/Application Support/Scribeosaur/
 ├── bin/         ← ffmpeg, yt-dlp (downloaded first launch)
 ├── models/      ← FluidAudio CoreML models (cached)
-├── db/          ← floscrybe.sqlite (GRDB)
+├── db/          ← scribeosaur.sqlite (GRDB)
 └── temp/        ← processing audio (auto-cleaned)
 ```
 

@@ -1,4 +1,4 @@
-name: Floscrybe
+name: Scribeosaur
 options:
   bundleIdPrefix: com.bdoug
   deploymentTarget:
@@ -12,29 +12,50 @@ settings:
     VALID_ARCHS: arm64
     SWIFT_VERSION: "5.10"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_ENABLE_EXPLICIT_MODULES: NO
 
 targets:
-  Floscrybe:
+  Scribeosaur:
     type: application
     platform: macOS
     sources:
-      - path: Floscrybe
+      - path: Scribeosaur
+        excludes:
+          - Resources/AIModels/**
+          - Resources/LocalAI/**
+      - path: Scribeosaur/Resources/AIModels
+        type: folder
+        buildPhase: resources
+      - path: Scribeosaur/Resources/LocalAI
+        type: folder
+        buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bdoug.floscrybe
-        INFOPLIST_FILE: Floscrybe/Info.plist
-        CODE_SIGN_ENTITLEMENTS: Floscrybe/Resources/Floscrybe.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.bdoug.scribeosaur
+        INFOPLIST_FILE: Scribeosaur/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Scribeosaur/Resources/Scribeosaur.entitlements
         CODE_SIGN_STYLE: Automatic
         ENABLE_APP_SANDBOX: false
-        PRODUCT_NAME: Floscrybe
+        PRODUCT_NAME: Scribeosaur
     dependencies:
       - package: FluidAudio
       - package: GRDB
+  ScribeosaurTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: ScribeosaurTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bdoug.scribeosaur.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Scribeosaur
 
 packages:
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
-    from: "0.12.2"
+    from: "0.13.6"
   GRDB:
     url: https://github.com/groue/GRDB.swift
     from: "7.10.0"

@@ -1,10 +1,12 @@
-# Floscrybe Codex and ChatGPT Integration
+# Historical: Scribeosaur Codex and ChatGPT Integration
+
+> Historical note: this document describes the retired Codex CLI flow. The current app uses a local MLX-backed Gemma pipeline instead. See [`docs/local-ai-setup.md`](/Users/bdoug/Documents/Coding/flowscribe/docs/local-ai-setup.md) for the active setup and installer path.
 
 Updated: March 13, 2026
 
 ## What this implements
 
-Floscrybe now supports native AI account management from Settings by using the local first-party `codex` CLI session already installed on the Mac.
+Scribeosaur now supports native AI account management from Settings by using the local first-party `codex` CLI session already installed on the Mac.
 
 The app can now:
 
@@ -21,14 +23,14 @@ The app can now:
 
 As of March 13, 2026, OpenAI documents ChatGPT sign-in for first-party Codex clients such as the Codex CLI. OpenAI also documents that ChatGPT billing and API billing are separate products.
 
-Because of that, Floscrybe does **not** try to fake or reverse-engineer a custom third-party “Sign in with ChatGPT” OAuth flow. Instead, it delegates authentication to the supported local Codex client and then executes transcript tasks through that authenticated session.
+Because of that, Scribeosaur does **not** try to fake or reverse-engineer a custom third-party “Sign in with ChatGPT” OAuth flow. Instead, it delegates authentication to the supported local Codex client and then executes transcript tasks through that authenticated session.
 
 This is the supported path implemented in the app.
 
 ## User flow
 
 1. Install Codex CLI if it is not already available.
-2. Open `Floscrybe > Settings > AI`.
+2. Open `Scribeosaur > Settings > AI`.
 3. Click `Sign In with ChatGPT`.
 4. Complete the browser-based OpenAI sign-in flow.
 5. Click `Run Health Check` or let the app run it automatically after login.
@@ -74,13 +76,13 @@ The health check performs a minimal read-only Codex execution and expects a dete
 
 - the local `codex` binary is present
 - the user has a valid Codex session
-- Floscrybe can successfully execute an authenticated request
+- Scribeosaur can successfully execute an authenticated request
 
 ## Privacy and behavior
 
 When a user runs an AI transcript tool, transcript content is sent to OpenAI through the user’s local Codex session.
 
-Floscrybe does not store an OpenAI API key and does not bundle a hidden project credential.
+Scribeosaur does not store an OpenAI API key and does not bundle a hidden project credential.
 
 ## Troubleshooting
 

@@ -1,6 +1,6 @@
-# Contributing to Flowscribe
+# Contributing to Scribeosaur
 
-Thanks for your interest in contributing! Flowscribe is a native macOS transcription app built with Swift and SwiftUI.
+Thanks for your interest in contributing! Scribeosaur is a native macOS transcription app built with Swift and SwiftUI.
 
 ## Development Environment
 
@@ -16,12 +16,12 @@ Thanks for your interest in contributing! Flowscribe is a native macOS transcrip
 xcodegen generate
 
 # Open in Xcode
-open Floscrybe.xcodeproj
+open Scribeosaur.xcodeproj
 
 # Build and run (Cmd+R)
 ```
 
-Place `ffmpeg` and `yt-dlp` binaries in `Floscrybe/Resources/Binaries/` before building. See the README for download links.
+Place `ffmpeg` and `yt-dlp` binaries in `Scribeosaur/Resources/Binaries/` before building. See the README for download links.
 
 ## Pull Request Process
 

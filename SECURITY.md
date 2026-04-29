@@ -2,11 +2,11 @@
 
 ## Architecture
 
-Flowscribe is a local-first application:
+Scribeosaur is a local-first application:
 
 - All transcription runs on-device using Apple's Neural Engine
 - No cloud services, no embedded API keys, no telemetry
-- AI features use the local Codex CLI session — authentication is handled entirely by the Codex CLI, not by Flowscribe
+- AI features run locally through MLX with model files stored in Application Support or bundled in the installer
 - All external URLs in the codebase are public documentation links
 
 ## Reporting a Vulnerability
